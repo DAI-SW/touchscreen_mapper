@@ -6,6 +6,73 @@ echo "   Touchscreen Mapping Utility"
 echo "====================================="
 echo ""
 
+# Konfigurationsdatei-Pfad
+CONFIG_DIR="$HOME/.config/touchscreen-mapper"
+CONFIG_FILE="$CONFIG_DIR/config"
+AUTOSTART_DIR="$HOME/.config/autostart"
+AUTOSTART_FILE="$AUTOSTART_DIR/touchscreen-mapper.desktop"
+
+# Funktion zum Anzeigen der Hilfe
+show_help() {
+    echo "Verwendung: $0 [OPTIONEN]"
+    echo ""
+    echo "Optionen:"
+    echo "  -h, --help               Zeigt diese Hilfe an"
+    echo "  -l, --load               Lädt die gespeicherte Konfiguration"
+    echo "  -s, --save               Speichert die Konfiguration für den Autostart"
+    echo "  -r, --remove             Entfernt die gespeicherte Konfiguration"
+    echo ""
+    exit 0
+}
+
+# Verarbeite Befehlszeilenargumente
+if [ $# -gt 0 ]; then
+    case "$1" in
+        -h|--help)
+            show_help
+            ;;
+        -l|--load)
+            if [ -f "$CONFIG_FILE" ]; then
+                echo "Lade gespeicherte Konfiguration..."
+                source "$CONFIG_FILE"
+                
+                # Führe das Mapping mit den gespeicherten Werten durch
+                if [ -n "$TOUCH_ID" ] && [ -n "$MONITOR_NAME" ]; then
+                    xinput map-to-output $TOUCH_ID $MONITOR_NAME
+                    echo "Touchscreen (ID: $TOUCH_ID) erfolgreich auf Monitor $MONITOR_NAME gemappt!"
+                    exit 0
+                else
+                    echo "Fehler: Unvollständige Konfigurationsdatei."
+                    exit 1
+                fi
+            else
+                echo "Keine gespeicherte Konfiguration gefunden."
+                echo "Führe interaktiven Modus aus..."
+                echo ""
+            fi
+            ;;
+        -r|--remove)
+            if [ -f "$CONFIG_FILE" ]; then
+                rm "$CONFIG_FILE"
+                echo "Konfigurationsdatei entfernt."
+            fi
+            if [ -f "$AUTOSTART_FILE" ]; then
+                rm "$AUTOSTART_FILE"
+                echo "Autostart-Eintrag entfernt."
+            fi
+            exit 0
+            ;;
+        -s|--save)
+            # Diese Option wird später im Skript behandelt
+            SAVE_CONFIG=true
+            ;;
+        *)
+            echo "Unbekannte Option: $1"
+            show_help
+            ;;
+    esac
+fi
+
 # Ausgabe aller USB-Geräte
 echo "===== USB-Eingabegeräte ====="
 lsusb
@@ -35,27 +102,27 @@ echo ""
 map_touch_to_monitor() {
     local touch_id=$1
     local monitor=$2
-
+    
     echo "Mappe Touchscreen ID $touch_id auf Monitor $monitor..."
-
+    
     # Hole die Koordinaten des ausgewählten Monitors
     coords=$(xrandr | grep "$monitor" | grep -o "[0-9]*x[0-9]*+[0-9]*+[0-9]*")
-
+    
     if [ -z "$coords" ]; then
         echo "Fehler: Konnte die Koordinaten des Monitors nicht ermitteln."
         return 1
     fi
-
+    
     # Extrahiere die Werte
     width=$(echo $coords | cut -d'x' -f1)
     rest=$(echo $coords | cut -d'x' -f2)
     height=$(echo $rest | cut -d'+' -f1)
     x_offset=$(echo $rest | cut -d'+' -f2)
     y_offset=$(echo $rest | cut -d'+' -f3)
-
+    
     # Setze die Transformation für den Touchscreen
     xinput map-to-output $touch_id $monitor
-
+    
     echo "Touchscreen erfolgreich gemapped!"
     echo "Koordinaten: ${width}x${height}+${x_offset}+${y_offset}"
 }
@@ -91,7 +158,7 @@ if [ $touch_count -gt 1 ]; then
     echo ""
     echo "Bitte wählen Sie den zu mappenden Touchscreen (0-$((touch_count-1))):"
     read selected_touch
-
+    
     # Validierung der Eingabe
     while ! [[ "$selected_touch" =~ ^[0-9]+$ ]] || [ "$selected_touch" -ge "$touch_count" ]; do
         echo "Ungültige Auswahl. Bitte wählen Sie einen Wert zwischen 0 und $((touch_count-1)):"
@@ -118,6 +185,56 @@ done
 
 # Mapping durchführen
 map_touch_to_monitor "${touch_ids[$selected_touch]}" "${monitors[$selected_monitor]}"
+
+# Speichern der Konfiguration wenn gewünscht
+TOUCH_ID="${touch_ids[$selected_touch]}"
+MONITOR_NAME="${monitors[$selected_monitor]}"
+
+# Frage nach dem Speichern der Konfiguration, wenn nicht mit --save aufgerufen
+if [ "$SAVE_CONFIG" != "true" ]; then
+    echo ""
+    echo "Möchtest du diese Konfiguration dauerhaft speichern? (j/n)"
+    read save_answer
+    if [[ "$save_answer" =~ ^[Jj] ]]; then
+        SAVE_CONFIG=true
+    fi
+fi
+
+# Konfiguration speichern, wenn gewünscht
+if [ "$SAVE_CONFIG" = "true" ]; then
+    # Erstelle Konfigurationsverzeichnis, falls es nicht existiert
+    mkdir -p "$CONFIG_DIR"
+    
+    # Schreibe Konfigurationsdatei
+    cat > "$CONFIG_FILE" << EOF
+# Touchscreen Mapper Konfiguration
+# Automatisch erstellt am $(date)
+TOUCH_ID=$TOUCH_ID
+MONITOR_NAME="$MONITOR_NAME"
+EOF
+
+    echo "Konfiguration gespeichert in $CONFIG_FILE"
+    
+    # Erstelle Autostart-Eintrag
+    mkdir -p "$AUTOSTART_DIR"
+    
+    # Ermittle den absoluten Pfad des Skripts
+    SCRIPT_PATH=$(readlink -f "$0")
+    
+    cat > "$AUTOSTART_FILE" << EOF
+[Desktop Entry]
+Type=Application
+Name=Touchscreen Mapper
+Comment=Mappt den Touchscreen auf den richtigen Monitor
+Exec=$SCRIPT_PATH --load
+Terminal=false
+Hidden=false
+X-GNOME-Autostart-enabled=true
+EOF
+
+    echo "Autostart-Eintrag erstellt in $AUTOSTART_FILE"
+    echo "Das Mapping wird automatisch beim nächsten Login angewendet."
+fi
 
 echo ""
 echo "====================================="
