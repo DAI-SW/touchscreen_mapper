@@ -25,6 +25,26 @@ show_help() {
     exit 0
 }
 
+# Funktion zum Finden eines Touchscreen-Geräts anhand seines Namens
+find_touchscreen_by_name() {
+    local search_name="$1"
+    local device_id=""
+    
+    # Durchsuche alle xinput-Geräte nach dem Namen
+    while read -r line; do
+        local name=$(echo "$line" | awk -F'↳' '{print $2}' | awk -F'id=' '{print $1}' | xargs)
+        local id=$(echo "$line" | awk -F'id=' '{print $2}' | awk '{print $1}')
+        
+        # Überprüfe, ob der Name übereinstimmt (teilweise Übereinstimmung ist ausreichend)
+        if [[ "$name" == *"$search_name"* ]]; then
+            device_id="$id"
+            break
+        fi
+    done < <(xinput list | grep -i "touchscreen")
+    
+    echo "$device_id"
+}
+
 # Verarbeite Befehlszeilenargumente
 if [ $# -gt 0 ]; then
     case "$1" in
@@ -37,10 +57,20 @@ if [ $# -gt 0 ]; then
                 source "$CONFIG_FILE"
                 
                 # Führe das Mapping mit den gespeicherten Werten durch
-                if [ -n "$TOUCH_ID" ] && [ -n "$MONITOR_NAME" ]; then
-                    xinput map-to-output $TOUCH_ID $MONITOR_NAME
-                    echo "Touchscreen (ID: $TOUCH_ID) erfolgreich auf Monitor $MONITOR_NAME gemappt!"
-                    exit 0
+                if [ -n "$TOUCH_NAME" ] && [ -n "$MONITOR_NAME" ]; then
+                    # Finde die aktuelle Geräte-ID anhand des gespeicherten Namens
+                    TOUCH_ID=$(find_touchscreen_by_name "$TOUCH_NAME")
+                    
+                    if [ -n "$TOUCH_ID" ]; then
+                        xinput map-to-output $TOUCH_ID $MONITOR_NAME
+                        echo "Touchscreen '$TOUCH_NAME' (ID: $TOUCH_ID) erfolgreich auf Monitor $MONITOR_NAME gemappt!"
+                        exit 0
+                    else
+                        echo "Fehler: Touchscreen '$TOUCH_NAME' nicht gefunden."
+                        echo "Verfügbare Touchscreens:"
+                        xinput list | grep -i "touchscreen"
+                        exit 1
+                    fi
                 else
                     echo "Fehler: Unvollständige Konfigurationsdatei."
                     exit 1
@@ -144,11 +174,24 @@ fi
 echo "Verfügbare Touchscreens:"
 touch_count=0
 declare -a touch_ids
+declare -a touch_names
 while read -r line; do
     touch_id=$(echo $line | awk -F'id=' '{print $2}' | awk '{print $1}')
-    touch_name=$(echo $line | awk -F'↳' '{print $2}' | awk -F'id=' '{print $1}')
+    touch_name=$(echo $line | awk -F'↳' '{print $2}' | awk -F'id=' '{print $1}' | xargs)
+    # Hardware-Name mit xinput list-props erhalten
+    device_info=$(xinput list-props $touch_id | grep "Device Node" || echo "")
+    device_node=$(echo "$device_info" | grep -o '"/dev/[^"]*"' | tr -d '"' || echo "")
+    
+    # Sicherere Gerätename-Ermittlung
+    hw_name=$(echo "$touch_name" | awk '{$1=$1};1')
+    
     echo "[$touch_count] $touch_name (ID: $touch_id)"
+    if [ -n "$device_node" ]; then
+        echo "    Device Node: $device_node"
+    fi
+    
     touch_ids[$touch_count]=$touch_id
+    touch_names[$touch_count]=$hw_name
     touch_count=$((touch_count + 1))
 done < <(xinput list | grep -i "touchscreen")
 
@@ -188,6 +231,7 @@ map_touch_to_monitor "${touch_ids[$selected_touch]}" "${monitors[$selected_monit
 
 # Speichern der Konfiguration wenn gewünscht
 TOUCH_ID="${touch_ids[$selected_touch]}"
+TOUCH_NAME="${touch_names[$selected_touch]}"
 MONITOR_NAME="${monitors[$selected_monitor]}"
 
 # Frage nach dem Speichern der Konfiguration, wenn nicht mit --save aufgerufen
@@ -209,7 +253,7 @@ if [ "$SAVE_CONFIG" = "true" ]; then
     cat > "$CONFIG_FILE" << EOF
 # Touchscreen Mapper Konfiguration
 # Automatisch erstellt am $(date)
-TOUCH_ID=$TOUCH_ID
+TOUCH_NAME="$TOUCH_NAME"
 MONITOR_NAME="$MONITOR_NAME"
 EOF
 
