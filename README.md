@@ -65,6 +65,12 @@ Falls das Mapping nicht funktioniert:
 
 ## Persistente Konfiguration
 
+Das Skript speichert nun den Hardware-Namen des Touchscreens statt der dynamischen Geräte-ID. Das bietet mehrere Vorteile:
+
+- Zuverlässigere Konfiguration über Neustarts hinweg
+- Das Mapping funktioniert auch dann, wenn sich die Geräte-IDs ändern
+- Bessere Kompatibilität mit verschiedenen X-Server-Konfigurationen
+
 Das Skript bietet zwei Möglichkeiten, das Mapping dauerhaft zu speichern:
 
 1. **Während der Ausführung**: Am Ende des interaktiven Modus kannst du wählen, ob du die Konfiguration speichern möchtest
