@@ -1,91 +1,238 @@
-# Touchscreen Monitor Mapping Tool
+# Touchscreen Mapper Utility
 
-Dieses Bash-Skript ermöglicht es dir, Touchscreen-Eingabegeräte auf bestimmte Monitore in einer Linux-Umgebung zu mappen.
+Ein robustes Bash-Script zur automatischen Konfiguration und dauerhaften Zuordnung von Touchscreens zu Monitoren unter Linux/X11.
 
-## Funktionen
+## 🎯 Features
 
-- Listet alle USB-Eingabegeräte im System auf
-- Zeigt verfügbare Monitore und deren Einstellungen an
-- Identifiziert automatisch Touchscreen-Geräte
-- Ermöglicht interaktives Mapping eines Touchscreens auf einen ausgewählten Monitor
-- Führt das Mapping mit `xinput map-to-output` durch
+- **Automatische Erkennung** von Touchscreen-Geräten und Monitoren
+- **Multi-ID Support** - Handhabt Touchscreens mit mehreren xinput IDs automatisch
+- **Persistente Konfiguration** - Einmal einrichten, dauerhaft nutzen
+- **Autostart-Integration** - Automatisches Mapping beim Login
+- **Robuste Geräteerkennung** über Name, Vendor ID und Product ID
+- **Logging-System** zur Fehleranalyse
+- **evtest Integration** für erweiterte Diagnose
+- **Benutzerfreundliche Verwaltung** von Berechtigungen (root/user)
 
-## Voraussetzungen
+## 📋 Voraussetzungen
 
-- Linux-Betriebssystem
-- X-Server (X11) 
-- Folgende Befehle müssen installiert sein:
-  - `lsusb`
-  - `xrandr`
-  - `xinput`
-
-## Installation
-
-1. Speichere das Skript in einer Datei (z.B. `touchscreen_mapper.sh`)
-2. Mache das Skript ausführbar:
-   ```bash
-   chmod +x touchscreen_mapper.sh
-   ```
-
-## Verwendung
-
-### Interaktiver Modus
-
-Führe das Skript ohne Parameter im Terminal aus:
-
+### Benötigte Pakete
 ```bash
-./touchscreen_mapper.sh
+# Debian/Ubuntu
+sudo apt-get install xinput x11-xserver-utils
+
+# Fedora
+sudo dnf install xinput xrandr
+
+# Arch Linux
+sudo pacman -S xorg-xinput xorg-xrandr
 ```
 
-Folge den Anweisungen auf dem Bildschirm:
+### Optionale Pakete (für erweiterte Funktionen)
+```bash
+# Für Touchscreen-Tests
+sudo apt-get install evtest    # Debian/Ubuntu
+sudo dnf install evtest         # Fedora
+sudo pacman -S evtest           # Arch
+```
 
-1. Das Skript zeigt dir eine Liste aller verfügbaren Touchscreens an
-2. Wähle den Touchscreen, den du mappen möchtest
-3. Das Skript zeigt dir eine Liste aller verfügbaren Monitore an
-4. Wähle den Monitor, auf den der Touchscreen gemappt werden soll
-5. Das Skript führt das Mapping durch und bestätigt den erfolgreichen Abschluss
-6. Du kannst wählen, ob du die Konfiguration dauerhaft speichern möchtest
+## 🚀 Schnellstart
 
-### Kommandozeilenoptionen
 
-Das Skript unterstützt folgende Optionen:
+### 1. Erstmalige Einrichtung
+```bash
+sudo ./touchscreen_mapper.sh
+```
+Das Script führt dich interaktiv durch:
+- Erkennung aller Touchscreens
+- Auswahl des gewünschten Touchscreens
+- Auswahl des Zielmonitors
+- Speicherung der Konfiguration
+- Einrichtung des Autostarts
 
-- `-h, --help`: Zeigt die Hilfe an
-- `-l, --load`: Lädt und wendet die gespeicherte Konfiguration an
-- `-s, --save`: Führt das Mapping durch und speichert die Konfiguration automatisch
-- `-r, --remove`: Entfernt die gespeicherte Konfiguration und den Autostart-Eintrag
+### 2. Fertig!
+Der Touchscreen wird nun automatisch bei jedem Login korrekt zugeordnet.
 
-## Fehlerbehebung
+## 💡 Verwendung
 
-Falls das Mapping nicht funktioniert:
+### Grundlegende Befehle
 
-- Stelle sicher, dass das Touchscreen-Gerät korrekt erkannt wird
-- Überprüfe, ob der X-Server läuft und der Monitor korrekt erkannt wird
-- Bei Multi-Monitor-Setups kann es hilfreich sein, die genaue Konfiguration mit `xrandr --verbose` zu prüfen
+| Befehl | Beschreibung |
+|--------|-------------|
+| `./touchscreen_mapper.sh` | Interaktiver Konfigurationsmodus |
+| `./touchscreen_mapper.sh --auto` | Automatisches Mapping (für Autostart) |
+| `./touchscreen_mapper.sh --load` | Lädt gespeicherte Konfiguration |
+| `./touchscreen_mapper.sh --remove` | Entfernt Konfiguration und Autostart |
+| `./touchscreen_mapper.sh --help` | Zeigt Hilfe an |
 
-## Persistente Konfiguration
+### Erweiterte Befehle
 
-Das Skript speichert nun den Hardware-Namen des Touchscreens statt der dynamischen Geräte-ID. Das bietet mehrere Vorteile:
+| Befehl | Beschreibung |
+|--------|-------------|
+| `sudo ./touchscreen_mapper.sh --detect` | Erkennt alle IDs eines Touchscreens |
+| `sudo ./touchscreen_mapper.sh --test` | Testet Touchscreens mit evtest |
+| `./touchscreen_mapper.sh --show-log` | Zeigt Log-Datei an |
+| `./touchscreen_mapper.sh --save` | Speichert aktuelle Konfiguration |
 
-- Zuverlässigere Konfiguration über Neustarts hinweg
-- Das Mapping funktioniert auch dann, wenn sich die Geräte-IDs ändern
-- Bessere Kompatibilität mit verschiedenen X-Server-Konfigurationen
+## 🔧 Problemlösung
 
-Das Skript bietet zwei Möglichkeiten, das Mapping dauerhaft zu speichern:
+### Problem: Touchscreen hat mehrere IDs
 
-1. **Während der Ausführung**: Am Ende des interaktiven Modus kannst du wählen, ob du die Konfiguration speichern möchtest
-2. **Mit der Option `--save`**: Das Mapping wird ausgeführt und automatisch gespeichert
+**Symptom:** Ein Touchscreen erscheint mehrfach in `xinput list` (z.B. ID 14 und 15)
 
-Wenn du die Konfiguration speicherst:
-- Es wird eine Konfigurationsdatei unter `~/.config/touchscreen-mapper/config` erstellt
-- Ein Autostart-Eintrag wird unter `~/.config/autostart/touchscreen-mapper.desktop` erstellt
-- Das Mapping wird automatisch bei jedem Login angewendet
+**Lösung:** Das Script handhabt dies automatisch:
+- Erkennt alle IDs eines Geräts
+- Mappt alle IDs auf den Monitor
+- Nur die aktive ID wird funktionieren 
 
-### Konfiguration laden oder entfernen
+```bash
+# Diagnose
+sudo ./touchscreen_mapper.sh --detect
 
-- Um die gespeicherte Konfiguration manuell anzuwenden: `./touchscreen_mapper.sh --load`
-- Um die gespeicherte Konfiguration zu entfernen: `./touchscreen_mapper.sh --remove`
+# Ausgabe zeigt alle IDs
+# Geben Sie ein: WingCool Inc. TouchScreen
+# Gefunden: WingCool Inc. TouchScreen (ID: 14)
+# Gefunden: WingCool Inc. TouchScreen (ID: 15)
+```
 
-## Hinweis
+### Problem: Mapping funktioniert nach Neustart nicht
 
-Wenn sich deine Monitor-Konfiguration ändert (z.B. anderer Monitor oder geänderte Auflösung), musst du möglicherweise die Konfiguration neu erstellen. Verwende dazu die Option `--remove` und führe das Skript dann neu aus.
+**Mögliche Ursachen:**
+1. IDs haben sich geändert
+2. Autostart wurde nicht korrekt eingerichtet
+3. X11 ist noch nicht bereit
+
+**Lösungen:**
+```bash
+# Logs prüfen
+./touchscreen_mapper.sh --show-log
+
+# Manuell testen
+./touchscreen_mapper.sh --auto
+
+# Konfiguration neu erstellen
+sudo ./touchscreen_mapper.sh
+```
+
+### Problem: "Permission denied" Fehler
+
+**Lösung:** Für manche Funktionen sind root-Rechte nötig:
+```bash
+# Für evtest und Geräteerkennung
+sudo ./touchscreen_mapper.sh
+
+# Für normales Mapping reicht Benutzer-Modus
+./touchscreen_mapper.sh --load
+```
+
+## 📁 Dateispeicherorte
+
+| Datei | Pfad | Beschreibung |
+|-------|------|--------------|
+| Konfiguration | `~/.config/touchscreen-mapper/config` | Gespeicherte Touchscreen-Einstellungen |
+| Autostart | `~/.config/autostart/touchscreen-mapper.desktop` | Desktop-Datei für automatischen Start |
+| Logs | `/tmp/touchscreen-mapper.log` | Debug- und Fehler-Logs |
+
+## 🎮 Beispiel-Szenarien
+
+### Szenario 1: Laptop mit externem Touchscreen-Monitor
+
+```bash
+# 1. Externen Monitor anschließen
+# 2. Script ausführen
+sudo ./touchscreen_mapper.sh
+
+# 3. Wählen Sie:
+#    [0] WingCool Inc. TouchScreen
+#    [1] eDP-1 (interner Laptop-Bildschirm)
+#    [2] HDMI-1 (externer Touchscreen)
+
+# 4. Touchscreen 0 auf Monitor 2 mappen
+# 5. Konfiguration speichern
+```
+
+### Szenario 2: Multi-Monitor Setup mit festem Touchscreen
+
+```bash
+# Einmalige Konfiguration
+sudo ./touchscreen_mapper.sh
+
+# Bei Monitor-Wechsel neu konfigurieren
+sudo ./touchscreen_mapper.sh --remove
+sudo ./touchscreen_mapper.sh
+```
+
+### Szenario 3: Debugging bei Problemen
+
+```bash
+# 1. Alle Touchscreens anzeigen
+xinput list | grep -i touch
+
+# 2. IDs analysieren
+sudo ./touchscreen_mapper.sh --detect
+
+# 3. Einzelne Geräte testen
+sudo ./touchscreen_mapper.sh --test
+
+# 4. Logs prüfen
+./touchscreen_mapper.sh --show-log
+```
+
+## 🔍 Technische Details
+
+### Wie funktioniert das Multi-ID Handling?
+
+Manche Touchscreens registrieren mehrere xinput-Geräte:
+- Eine ID für Touch-Events
+- Eine ID für Pen/Stylus-Events
+- Manchmal zusätzliche IDs für Gesten
+
+Das Script:
+1. Erkennt alle IDs mit gleichem Namen
+2. Mappt alle IDs auf den Zielmonitor
+3. Nur die aktive ID verarbeitet Events
+4. Inaktive IDs stören nicht
+
+### Autostart-Mechanismus
+
+Die `.desktop` Datei nutzt:
+- `X-GNOME-Autostart-Delay=3` - Wartet bis X11 bereit ist
+- `--auto` Flag - Robustes Mapping aller passenden Geräte
+- Fallback auf Vendor/Product ID wenn Namen sich ändern
+
+### Unterstützte Desktop-Umgebungen
+
+- ✅ GNOME
+- ✅ KDE Plasma
+- ✅ XFCE
+- ✅ MATE
+- ✅ Cinnamon
+- ⚠️ Wayland (xinput funktioniert nur unter X11)
+
+## 🤝 Beitragen
+
+Verbesserungsvorschläge und Bug-Reports sind willkommen!
+
+### Bekannte Limitierungen
+
+- Funktioniert nur unter X11 (nicht Wayland)
+- Benötigt xinput und xrandr
+- Root-Rechte für evtest-Funktionen
+- Touchscreen muss als xinput-Gerät erkannt werden
+
+## 📜 Lizenz
+
+Dieses Script ist Open Source und kann frei verwendet, modifiziert und weitergegeben werden.
+
+## 🆘 Support
+
+Bei Problemen:
+1. Prüfen Sie die Logs: `./touchscreen_mapper.sh --show-log`
+2. Führen Sie Diagnose aus: `sudo ./touchscreen_mapper.sh --detect`
+3. Stellen Sie sicher, dass alle Voraussetzungen installiert sind
+4. Öffnen Sie ein Issue mit der Ausgabe der Diagnose-Befehle
+
+---
+
+**Version:** 3.0  
+**Autor:** [Dieter Aichberger]  
+**Letzte Aktualisierung:** 2025
